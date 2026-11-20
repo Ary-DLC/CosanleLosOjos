@@ -3,8 +3,9 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 // T09 - Inventario sencillo
+// T21 - Guarda qué notas de Mateo ya encontraste (el diario con Tab está en NoteReader.cs)
 // Se agrega al objeto PlayerCapsule.
-// H = usar una venda, mantener Tab = ver inventario y notas
+// H = usar una venda
 public class Inventory : MonoBehaviour
 {
     public int totalKeys = 3;       // llaves que hay en todo el juego (para mostrar 0/3)
@@ -14,11 +15,11 @@ public class Inventory : MonoBehaviour
     public List<string> keys = new List<string>();    // nombres de las llaves recogidas
     public int batteries = 0;
     public int bandages = 0;
-    public List<string> notes = new List<string>();   // texto de las notas recogidas
+    public List<string> notes = new List<string>();   // notas sueltas de Pickup (no las de Mateo)
+    public List<int> foundNotes = new List<int>();    // números de las notas de Mateo encontradas (en orden)
 
     private PlayerHealth health;
     private PlayerInteraction interaction;
-    private bool showPanel;
 
     void Start()
     {
@@ -30,8 +31,7 @@ public class Inventory : MonoBehaviour
     {
         Keyboard kb = Keyboard.current;
         if (kb == null) return;
-
-        showPanel = kb.tabKey.isPressed;
+        if (NoteReader.BlocksInput) return; // leyendo una nota
 
         // H: usar una venda
         if (kb.hKey.wasPressedThisFrame)
@@ -73,6 +73,14 @@ public class Inventory : MonoBehaviour
         return true; // "Objeto" no se guarda, solo se recoge
     }
 
+    // Lo llama BrotherNote.cs. Las guarda ordenadas para leerlas en orden en el diario.
+    public void AddNote(int number)
+    {
+        if (foundNotes.Contains(number)) return;
+        foundNotes.Add(number);
+        foundNotes.Sort();
+    }
+
     // Si keyName está vacío, sirve cualquier llave
     public bool HasKey(string keyName)
     {
@@ -95,20 +103,6 @@ public class Inventory : MonoBehaviour
         GUI.Label(new Rect(x, 20, 160, 20), "Llaves: " + keys.Count + "/" + totalKeys);
         GUI.Label(new Rect(x, 38, 160, 20), "Pilas: " + batteries + "/" + maxBatteries);
         GUI.Label(new Rect(x, 56, 160, 20), "Vendas: " + bandages + "  [H]");
-        GUI.Label(new Rect(x, 74, 160, 20), "Notas: " + notes.Count + "  [Tab]");
-
-        // Panel de notas mientras se mantiene Tab
-        if (showPanel)
-        {
-            Rect box = new Rect(Screen.width / 2f - 250, Screen.height / 2f - 200, 500, 400);
-            GUI.Box(box, "INVENTARIO");
-
-            GUIStyle style = new GUIStyle(GUI.skin.label);
-            style.wordWrap = true;
-
-            string text = "Llaves: " + (keys.Count > 0 ? string.Join(", ", keys) : "ninguna") + "\n\n";
-            text += notes.Count > 0 ? string.Join("\n\n", notes) : "No tienes notas.";
-            GUI.Label(new Rect(box.x + 15, box.y + 30, box.width - 30, box.height - 40), text, style);
-        }
+        GUI.Label(new Rect(x, 74, 160, 20), "Notas: " + foundNotes.Count + "/" + MateoNotes.Total + "  [Tab]");
     }
 }

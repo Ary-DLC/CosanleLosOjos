@@ -40,6 +40,9 @@ public class EnemyAI : MonoBehaviour
     public float searchTime = 10f;      // cuánto tiempo busca donde te perdió
     public float searchRadius = 5f;     // qué tan lejos de ahí busca
 
+    [Header("Confesionario")]
+    public float safeRadius = 5f;       // mientras guardas, no se acerca más que esto
+
     public State state = State.Patrullar;
 
     private NavMeshAgent agent;
@@ -47,6 +50,9 @@ public class EnemyAI : MonoBehaviour
     private Transform playerHead;
     private PlayerHiding hiding;
     private PlayerHealth playerHealth;
+    private SaveSystem save;
+    private Vector3 startPosition;      // donde empezó (para regresar cuando reapareces)
+    private Quaternion startRotation;
 
     private int currentPoint;
     private float timer;           // tiempo que le queda investigando o buscando
@@ -54,9 +60,16 @@ public class EnemyAI : MonoBehaviour
     private float pauseTimer;      // pausa después de golpear
     private Vector3 targetPosition;   // donde oyó el ruido o donde te vio por última vez
     private bool seesPlayer;
+    private float currentNoise;    // radio del ruido que está investigando ahora
 
     void OnEnable() { All.Add(this); }
     void OnDisable() { All.Remove(this); }
+
+    void Awake()
+    {
+        // Antes que nada: que exista el piso con NavMesh (si no hay AutoNavMesh en la escena, se crea solo)
+        AutoNavMesh.Ensure();
+    }
 
     void Start()
     {
@@ -67,7 +80,34 @@ public class EnemyAI : MonoBehaviour
         playerHead = Camera.main.transform;
         hiding = p.GetComponent<PlayerHiding>();
         playerHealth = p.GetComponent<PlayerHealth>();
+        save = p.GetComponent<SaveSystem>();
 
+        startPosition = transform.position;
+        startRotation = transform.rotation;
+
+        // El NavMesh se horneó al iniciar: si el agente todavía no está encima, lo acomodamos
+        if (agent.isOnNavMesh)
+            StartPatrol();
+        else
+            TryPlaceOnNavMesh(); // si lo logra, empieza a patrullar; si no, Update lo vuelve a intentar
+    }
+
+    // T17: lo llama SaveSystem cuando la jugadora reaparece en un confesionario
+    public void ResetEnemy()
+    {
+        pauseTimer = 0f;
+        waitTimer = 0f;
+        currentPoint = 0;
+        if (agent.isOnNavMesh)
+        {
+            agent.Warp(startPosition);
+            agent.isStopped = false;
+        }
+        else
+        {
+            transform.position = startPosition;
+        }
+        transform.rotation = startRotation;
         StartPatrol();
     }
 
@@ -97,6 +137,15 @@ public class EnemyAI : MonoBehaviour
 
         OpenDoorsInFront();
 
+        // T17: mientras guardas en el confesionario no se puede acercar; se aleja
+        if (save != null && save.IsSaving && HorizontalDistance(transform.position, player.position) < safeRadius)
+        {
+            Vector3 away = transform.position + (transform.position - player.position).normalized * safeRadius;
+            if (NavMesh.SamplePosition(away, out NavMeshHit hit, 2f, NavMesh.AllAreas))
+                GoTo(hit.position);
+            return;
+        }
+
         // Si te ve, deja todo y te persigue
         seesPlayer = CanSeePlayer();
         if (seesPlayer)
@@ -120,6 +169,7 @@ public class EnemyAI : MonoBehaviour
     {
         state = State.Patrullar;
         agent.speed = patrolSpeed;
+        currentNoise = 0f;
         if (patrolPoints.Length > 0)
             GoTo(patrolPoints[currentPoint].position);
     }
@@ -147,6 +197,12 @@ public class EnemyAI : MonoBehaviour
         float distance = Vector3.Distance(transform.position, position);
         if (distance > radius * hearing) return; // muy lejos, no lo oyó
 
+        // Si ya va a investigar un ruido más fuerte (ej. la botella), no lo distraen ruiditos (ej. pasos)
+        if (state == State.Investigar && radius < currentNoise) return;
+        currentNoise = radius;
+
+        Debug.Log("[Enemigo] " + name + " va a investigar el ruido en " + position);
+
         state = State.Investigar;
         timer = investigateTime;
         targetPosition = position;
@@ -160,7 +216,7 @@ public class EnemyAI : MonoBehaviour
 
         // Si estás escondida aquí cerca y no aguantas la respiración, te oye y te saca
         if (hiding != null && hiding.IsHidden && !hiding.IsHoldingBreath &&
-            Vector3.Distance(transform.position, player.position) < grabDistance)
+            HorizontalDistance(transform.position, player.position) < grabDistance)
         {
             hiding.ForceExit();
             StartChase();
@@ -181,7 +237,10 @@ public class EnemyAI : MonoBehaviour
 
     void Chase()
     {
-        GoTo(targetPosition);
+        // Si la jugadora está fuera del NavMesh (en la orilla o fuera de su ruta),
+        // va al punto del NavMesh más cercano a ella. Si el camino queda incompleto,
+        // el agente llega hasta donde puede.
+        GoTo(ClosestNavMeshPoint(targetPosition));
 
         if (!seesPlayer)
         {
@@ -190,8 +249,43 @@ public class EnemyAI : MonoBehaviour
             return;
         }
 
-        if (Vector3.Distance(transform.position, player.position) <= attackRange)
+        // Ataque medido en distancia HORIZONTAL (sin altura) y sin usar remainingDistance,
+        // así funciona aunque el camino esté incompleto
+        float distance = HorizontalDistance(transform.position, player.position);
+        if (distance <= attackRange)
+        {
+            FacePlayer();
             Attack();
+        }
+        else if (distance <= attackRange * 3f)
+        {
+            FacePlayer(); // ya está cerca (quizá no puede avanzar más): que la voltee a ver
+        }
+    }
+
+    // Distancia sin contar la altura (el enemigo y la jugadora tienen el centro a diferente altura)
+    float HorizontalDistance(Vector3 a, Vector3 b)
+    {
+        a.y = 0f;
+        b.y = 0f;
+        return Vector3.Distance(a, b);
+    }
+
+    // El punto del NavMesh más cercano a "position" (hasta 5 m). Si no hay, regresa la misma posición.
+    Vector3 ClosestNavMeshPoint(Vector3 position)
+    {
+        if (NavMesh.SamplePosition(position, out NavMeshHit hit, 5f, NavMesh.AllAreas))
+            return hit.position;
+        return position;
+    }
+
+    void FacePlayer()
+    {
+        Vector3 direction = player.position - transform.position;
+        direction.y = 0f;
+        if (direction.sqrMagnitude < 0.001f) return;
+        Quaternion look = Quaternion.LookRotation(direction);
+        transform.rotation = Quaternion.Slerp(transform.rotation, look, 10f * Time.deltaTime);
     }
 
     void Attack()
@@ -241,6 +335,7 @@ public class EnemyAI : MonoBehaviour
     bool CanSeePlayer()
     {
         if (hiding != null && hiding.IsHidden) return false; // escondida = invisible
+        if (save != null && save.IsSaving) return false;     // guardando en el confesionario = a salvo
 
         Vector3 eyes = transform.position + Vector3.up * eyeHeight;
         Vector3 toPlayer = playerHead.position - eyes;

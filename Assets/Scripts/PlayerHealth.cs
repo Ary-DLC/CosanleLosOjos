@@ -3,6 +3,7 @@ using UnityEngine.SceneManagement;
 using StarterAssets;
 
 // T14 - Vida del jugador (3 puntos, sin barra: el daño se ve con DamageEffects)
+// T17 - Al morir reaparece en el último confesionario (si ya guardó)
 // Se agrega al objeto PlayerCapsule.
 public class PlayerHealth : MonoBehaviour
 {
@@ -78,8 +79,28 @@ public class PlayerHealth : MonoBehaviour
 
     void Restart()
     {
-        // Vuelve a cargar la misma escena (debe estar en la lista de escenas del Build Profile)
+        // T17: si ya se guardó en un confesionario, reaparece ahí
+        SaveSystem save = GetComponent<SaveSystem>();
+        if (save != null && save.HasSave)
+        {
+            save.Respawn();
+            return;
+        }
+
+        // Si nunca guardó: vuelve a cargar la misma escena (debe estar en la lista de escenas del Build Profile)
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    // Lo llama SaveSystem al reaparecer en un confesionario
+    public void Revive()
+    {
+        IsDead = false;
+        Health = maxHealth;
+        LastHitTime = -100f;
+        regenTimer = 0f;
+
+        GetComponent<FirstPersonController>().enabled = true;
+        GetComponent<PlayerInteraction>().enabled = true;
     }
 
     void OnGUI()

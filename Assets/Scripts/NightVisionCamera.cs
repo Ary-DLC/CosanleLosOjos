@@ -97,6 +97,12 @@ public class NightVisionCamera : MonoBehaviour
         playerCamera.Lens.FieldOfView = Mathf.Lerp(playerCamera.Lens.FieldOfView, targetFOV, zoomSpeed * Time.deltaTime);
     }
 
+    // T17: lo usa SaveSystem para regresar la batería a como estaba al guardar
+    public void SetBattery(float value)
+    {
+        Battery = Mathf.Clamp(value, 0f, maxBattery);
+    }
+
     void SetNightVision(bool on)
     {
         IsOn = on;

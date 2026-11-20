@@ -164,6 +164,7 @@ public class PlayerHiding : MonoBehaviour
         }
 
         if (busy) return; // durante el fundido no se hace nada
+        if (NoteReader.BlocksInput) return; // leyendo una nota: la E cierra la nota, no saca del locker
 
         LookAround();
 
@@ -205,7 +206,7 @@ public class PlayerHiding : MonoBehaviour
                 Breath = 0f;
                 IsHoldingBreath = false;
                 mustRelease = true;
-                NoiseSystem.MakeNoise(transform.position, gaspNoiseRadius);
+                NoiseSystem.MakeNoise(transform.position, gaspNoiseRadius, "jadeo en el locker");
             }
         }
         else
@@ -216,7 +217,7 @@ public class PlayerHiding : MonoBehaviour
             if (breathTimer >= breathNoiseInterval)
             {
                 breathTimer = 0f;
-                NoiseSystem.MakeNoise(transform.position, breathNoiseRadius);
+                NoiseSystem.MakeNoise(transform.position, breathNoiseRadius, "respiración en el locker");
             }
         }
     }

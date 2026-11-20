@@ -25,9 +25,10 @@ public class PlayerNoise : MonoBehaviour
 
     void Update()
     {
-        // Si no se mueve, está en el aire o está escondida, no hay pasos
+        // Si no se mueve, está en el aire o está escondida, no hay pasos.
+        // Mientras la botella va volando tampoco, para que el enemigo solo oiga el choque.
         bool moving = input.move != Vector2.zero && fpc.Grounded && fpc.enabled;
-        if (!moving)
+        if (!moving || Throwable.InFlight)
         {
             stepTimer = 0f;
             return;
@@ -40,8 +41,8 @@ public class PlayerNoise : MonoBehaviour
         bool running = input.sprint && !stamina.IsCrouching && !stamina.IsExhausted;
 
         if (running)
-            NoiseSystem.MakeNoise(transform.position, runNoise);
+            NoiseSystem.MakeNoise(fpc.transform.position, runNoise, "pasos corriendo");
         else if (!stamina.IsCrouching && walkNoise > 0f)
-            NoiseSystem.MakeNoise(transform.position, walkNoise);
+            NoiseSystem.MakeNoise(fpc.transform.position, walkNoise, "pasos caminando");
     }
 }

@@ -2,6 +2,7 @@ using UnityEngine;
 
 // T07 - Objeto que se puede recoger (pila, llave, venda, nota...)
 // T09 - Ahora se guarda en el inventario
+// (Para las notas de Mateo usa BrotherNote.cs, no este script)
 // Se agrega a cualquier objeto que tenga un Collider.
 public class Pickup : MonoBehaviour, IInteractable
 {
@@ -33,6 +34,7 @@ public class Pickup : MonoBehaviour, IInteractable
         else
             player.ShowMessage("Recogiste: " + itemName);
 
-        Destroy(gameObject);
+        // T17: en vez de destruirlo se apaga, para que regrese si mueres antes de guardar
+        SaveSystem.Collect(gameObject);
     }
 }

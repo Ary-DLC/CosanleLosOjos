@@ -55,7 +55,7 @@ public class Door : MonoBehaviour, IInteractable
         }
 
         isOpen = !isOpen;
-        NoiseSystem.MakeNoise(transform.position, noiseRadius);
+        NoiseSystem.MakeNoise(transform.position, noiseRadius, "puerta " + name);
     }
 
     void Unlock()

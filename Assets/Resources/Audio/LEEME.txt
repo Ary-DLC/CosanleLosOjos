@@ -1,0 +1,25 @@
+Pon aquí sonidos reales (.wav, .ogg o .mp3) con EXACTAMENTE estos nombres (sin contar la extensión).
+Si un archivo no existe, SoundManager genera ese sonido por código.
+En las variaciones puedes poner menos archivos (ej. solo WalkSteps1 y WalkSteps2): usa los que encuentre.
+
+JUGADORA
+  WalkSteps1 ... WalkSteps6     pasos caminando en piedra (uno por archivo, cortos)
+  RunSteps1  ... RunSteps6      pasos corriendo
+  TiredBreathing                UNA respiración agitada (inhalar + exhalar, ~1 s). Se repite sola más rápido con el cansancio
+  Heartbeat                     UN latido "lub-dub" (~0.6 s). Se repite solo según la vida
+  HurtSound                     quejido corto
+
+AMBIENTE
+  Ambience                      ambiente de fondo en loop (zumbido / viento)
+  Drips1 ... Drips4             gotas sueltas
+  Creaks1 ... Creaks3           crujidos sueltos
+
+INTERFAZ
+  PaperSound                    papel al abrir una nota
+  SaveSound                     al guardar en un confesionario
+
+ENEMIGO
+  EnemySteps1 ... EnemySteps6   pasos arrastrados
+  EnemyGrowl                    respiración ronca en loop
+  EnemyScream                   grito al verte
+  EnemyAttack                   golpe al atacar

@@ -27,8 +27,14 @@ public class PlayerInteraction : MonoBehaviour
 
     void Update()
     {
-        // Lanzamos un rayo desde el centro de la cámara hacia adelante
+        // (con el juego en pausa leyendo una nota, el mensaje espera y se ve al cerrarla)
+        if (messageTimer > 0f) messageTimer -= Time.deltaTime;
+
+        // T21: mientras se lee una nota (o justo al cerrarla) la E no hace nada aquí
         current = null;
+        if (NoteReader.BlocksInput) return;
+
+        // Lanzamos un rayo desde el centro de la cámara hacia adelante
         Ray ray = new Ray(cam.transform.position, cam.transform.forward);
         if (Physics.Raycast(ray, out RaycastHit hit, reach, ~0, QueryTriggerInteraction.Collide))
         {
@@ -40,8 +46,6 @@ public class PlayerInteraction : MonoBehaviour
         {
             current.Interact(this);
         }
-
-        if (messageTimer > 0f) messageTimer -= Time.deltaTime;
     }
 
     // Otros scripts usan esto para mostrar avisos (ej. "Recogiste una pila")
