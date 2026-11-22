@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using StarterAssets;
@@ -92,6 +92,7 @@ public class PlayerHiding : MonoBehaviour
         // Bloqueamos el movimiento y la interacción desde el principio
         fpc.enabled = false;
         interaction.enabled = false;
+        GameAudio.PlayAt("casillero_abrir", locker.transform.position + Vector3.up * 1.2f, 1f, "SFX", 1.5f);
 
         yield return Fade(0f, 1f);   // pantalla a negro
 
@@ -106,6 +107,7 @@ public class PlayerHiding : MonoBehaviour
         cameraTarget.localRotation = Quaternion.identity;
         breathTimer = 0f;
         IsHidden = true;
+        GameAudio.PlayAt("casillero_cerrar", locker.transform.position + Vector3.up * 1.2f, 1f, "SFX", 1.5f);
 
         yield return Fade(1f, 0f);   // regresa la imagen
         busy = false;
@@ -115,6 +117,8 @@ public class PlayerHiding : MonoBehaviour
     {
         busy = true;
         IsHoldingBreath = false;
+        Vector3 lockerPos = currentLocker.transform.position + Vector3.up * 1.2f;
+        GameAudio.PlayAt("casillero_abrir", lockerPos, 1f, "SFX", 1.5f);
 
         yield return Fade(0f, 1f);
 
@@ -131,6 +135,7 @@ public class PlayerHiding : MonoBehaviour
         if (playerInput != null) playerInput.enabled = true;
         cc.enabled = true;
         fpc.enabled = true;
+        GameAudio.PlayAt("casillero_cerrar", lockerPos, 0.8f, "SFX", 1.5f);
 
         yield return Fade(1f, 0f);
 
@@ -168,17 +173,15 @@ public class PlayerHiding : MonoBehaviour
 
         LookAround();
 
-        Keyboard kb = Keyboard.current;
-        if (kb == null) return;
-
-        // E: salir
-        if (kb.eKey.wasPressedThisFrame)
+        // E (Interactuar): salir
+        if (GameInput.InteractPressed)
         {
             Exit();
             return;
         }
 
-        UpdateBreath(kb.spaceKey.isPressed);
+        // Espacio (Saltar): contener la respiración
+        UpdateBreath(GameInput.JumpHeld);
     }
 
     // El mouse solo gira un poco la cámara (como asomarse por las rendijas)
@@ -254,6 +257,7 @@ public class PlayerHiding : MonoBehaviour
 
     void OnGUI()
     {
+        if (PauseMenu.IsPaused) return; // el menú de pausa va encima
         Rect screen = new Rect(0, 0, Screen.width, Screen.height);
         Color old = GUI.color;
 

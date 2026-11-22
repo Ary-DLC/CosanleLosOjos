@@ -59,8 +59,7 @@ public class Throwable : MonoBehaviour, IInteractable
 
     void Update()
     {
-        if (held == this && !NoteReader.BlocksInput &&
-            Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
+        if (held == this && !NoteReader.BlocksInput && GameInput.ThrowPressed)   // clic izquierdo
             Throw();
 
         // Si va volando demasiado tiempo sin chocar fuerte, ya no cuenta como lanzada
@@ -103,6 +102,7 @@ public class Throwable : MonoBehaviour, IInteractable
         {
             Vector3 hitPoint = collision.GetContact(0).point;
             NoiseSystem.MakeNoise(hitPoint, noiseRadius, itemName + " (choque)");
+            GameAudio.PlayAt("botella_romper", hitPoint, 1f, "SFX", 2f);
         }
 
         Land();

@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -39,7 +39,11 @@ public class NightVisionCamera : MonoBehaviour
 
         if (playerCamera == null)
             playerCamera = FindAnyObjectByType<CinemachineCamera>();
-        normalFOV = playerCamera.Lens.FieldOfView;
+
+        // Menú: el campo de visión sale de Ajustes > Video
+        GameSettings.EnsureLoaded();
+        normalFOV = GameSettings.FieldOfView;
+        playerCamera.Lens.FieldOfView = normalFOV;
 
         Battery = maxBattery;
 
@@ -53,11 +57,10 @@ public class NightVisionCamera : MonoBehaviour
 
     void Update()
     {
-        Keyboard kb = Keyboard.current;
-        Mouse mouse = Mouse.current;
+        // (las teclas salen de GameInput: se pueden cambiar en el menú de Controles)
 
         // F: prender o apagar
-        if (kb != null && kb.fKey.wasPressedThisFrame)
+        if (GameInput.NightVisionPressed)
         {
             if (!IsOn && Battery <= 0f)
                 Message("Sin batería. Presiona R para poner una pila.");
@@ -66,7 +69,7 @@ public class NightVisionCamera : MonoBehaviour
         }
 
         // R: poner una pila nueva (la batería se llena)
-        if (kb != null && kb.rKey.wasPressedThisFrame)
+        if (GameInput.ReloadPressed)
         {
             if (Battery >= maxBattery)
                 Message("La batería está llena.");
@@ -92,9 +95,15 @@ public class NightVisionCamera : MonoBehaviour
         }
 
         // Zoom: mientras se mantiene el clic derecho
-        bool zooming = mouse != null && mouse.rightButton.isPressed;
+        bool zooming = GameInput.ZoomHeld;
         float targetFOV = zooming ? zoomFOV : normalFOV;
         playerCamera.Lens.FieldOfView = Mathf.Lerp(playerCamera.Lens.FieldOfView, targetFOV, zoomSpeed * Time.deltaTime);
+    }
+
+    // Menú: Ajustes > Video > Campo de visión (el zoom regresa a este valor)
+    public void SetNormalFOV(float fov)
+    {
+        normalFOV = fov;
     }
 
     // T17: lo usa SaveSystem para regresar la batería a como estaba al guardar
@@ -163,6 +172,7 @@ public class NightVisionCamera : MonoBehaviour
     // Batería en pantalla (temporal, para pruebas)
     void OnGUI()
     {
+        if (PauseMenu.IsPaused) return; // el menú de pausa va encima
         float w = 120f, h = 12f;
         float x = 20f, y = Screen.height - 40f;
 

@@ -1,0 +1,52 @@
+CRÉDITOS DE TEXTURAS - Cósanle los Ojos
+Todas las texturas son CC0 (dominio público): se pueden usar sin pedir permiso ni dar crédito,
+pero aquí se listan por respeto a sus autores. Resolución 2K.
+
+Carpeta          Textura original             Fuente
+---------------  ---------------------------  -----------------------------------------------------
+PiedraMuro       Castle Wall Slates           Poly Haven - https://polyhaven.com/a/castle_wall_slates
+Ladrillo         Medieval Red Brick           Poly Haven - https://polyhaven.com/a/medieval_red_brick
+Yeso             Plastered Wall 04            Poly Haven - https://polyhaven.com/a/plastered_wall_04
+YesoLadrillo     Rough Plasterbrick 05        Poly Haven - https://polyhaven.com/a/rough_plasterbrick_05
+PisoPiedra       Stone Tiles 02               Poly Haven - https://polyhaven.com/a/stone_tiles_02
+Mosaico          Floor Tiles 06               Poly Haven - https://polyhaven.com/a/floor_tiles_06
+Madera           Weathered Brown Planks       Poly Haven - https://polyhaven.com/a/weathered_brown_planks
+MetalOxidado     Rusty Metal 02               Poly Haven - https://polyhaven.com/a/rusty_metal_02
+RocaCueva        Rock Face 03                 Poly Haven - https://polyhaven.com/a/rock_face_03
+TelaRoja         Fabric 016                   ambientCG  - https://ambientcg.com/view?id=Fabric016
+
+Licencia: CC0 1.0 Universal - https://creativecommons.org/publicdomain/zero/1.0/
+
+MODELOS 3D (Assets/Models/Decoracion) - Poly Haven, CC0, resolución 1K
+---------------------------------------------------------------------------------------
+WoodenChair_01               https://polyhaven.com/a/WoodenChair_01
+WoodenTable_02               https://polyhaven.com/a/WoodenTable_02
+wooden_bookshelf_worn        https://polyhaven.com/a/wooden_bookshelf_worn
+hanging_picture_frame_02     https://polyhaven.com/a/hanging_picture_frame_02
+carved_wooden_plate          https://polyhaven.com/a/carved_wooden_plate
+antique_ceramic_vase_01      https://polyhaven.com/a/antique_ceramic_vase_01
+painted_wooden_nightstand    https://polyhaven.com/a/painted_wooden_nightstand
+wooden_crate_01              https://polyhaven.com/a/wooden_crate_01
+wine_barrel_01               https://polyhaven.com/a/wine_barrel_01
+ceramic_vase_02              https://polyhaven.com/a/ceramic_vase_02
+ceramic_pot                  https://polyhaven.com/a/ceramic_pot
+rock_moss_set_01             https://polyhaven.com/a/rock_moss_set_01
+rock_moss_set_02             https://polyhaven.com/a/rock_moss_set_02
+boulder_01                   https://polyhaven.com/a/boulder_01
+
+CALCOMANÍAS (Assets/Textures/Decals)
+---------------------------------------------------------------------------------------
+Decal_Humedad     Leaking 012A   ambientCG, CC0 - https://ambientcg.com/view?id=Leaking012A
+Decal_Humedad2    Leaking 017B   ambientCG, CC0 - https://ambientcg.com/view?id=Leaking017B
+Decal_Musgo       Moss 002       ambientCG, CC0 - https://ambientcg.com/view?id=Moss002 (con máscara de mancha generada)
+Decal_Suciedad    Ground 108     ambientCG, CC0 - https://ambientcg.com/view?id=Ground108 (con máscara de mancha generada)
+Decal_Sangre, Decal_Simbolo, Decal_Grieta, Decal_Charco, Decal_Telarana, Decal_Cera, Polvo_Particula:
+                  hechas por código en "Cósanle > Decorar niveles" (propias, dominio público / CC0).
+                  No se encontraron versiones CC0 de sangre, símbolos, grietas ni telarañas.
+
+Cráneos, huesos, cadenas, libros, candelabros, raíces y estalactitas: hechos con primitivas
+(Poly Haven no tiene modelos CC0 de esos objetos con una sola textura).
+
+Notas:
+- *_MetalSmooth.png se generó a partir de *_Roughness (smoothness = 1 - roughness, en el canal alfa).
+- La tela roja se oscurece con el tinte del material para que se vea sucia.

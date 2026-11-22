@@ -4,7 +4,7 @@
 // Los "\n" son saltos de línea.
 public static class MateoNotes
 {
-    public const int Total = 6;
+    public const int Total = 8;   // 1-2 Seminario, 3-6 Catacumbas, 7-8 El Umbral
 
     // Fecha escrita a mano arriba de cada nota (índice 0 = nota 1)
     public static readonly string[] Dates =
@@ -14,11 +14,13 @@ public static class MateoNotes
         "15 de marzo",
         "2 de abril",
         "¿mayo?",
-        "hoy"
+        "hoy",
+        "—",
+        "ahora"
     };
 
     // 0 = letra limpia, 1 = letra muy desordenada (inclinada, chueca)
-    public static readonly float[] Messiness = { 0f, 0.05f, 0.15f, 0.3f, 0.65f, 1f };
+    public static readonly float[] Messiness = { 0f, 0.05f, 0.15f, 0.3f, 0.65f, 1f, 1f, 1f };
 
     public static readonly string[] Texts =
     {
@@ -51,6 +53,14 @@ public static class MateoNotes
         "Lucía, te escuché llegar. ~Vete, vete, vete.~ No corras, no sirve. " +
         "No tengas miedo de los puntos, casi no duelen. " +
         "El Pastor dice que tú también eres especial. ~Ayúdame~ " +
-        "Te estamos esperando en el centro. Todos."
+        "Te estamos esperando en el centro. Todos.",
+
+        // 7 (El Umbral, nueva: se puede cambiar)
+        "Lucía. Ya casi no veo, pero ya no lo necesito. Aquí abajo se oye todo: " +
+        "tus pasos, tu respiración, tu miedo. ~Regrésate~ No te escondas. En el centro no duele.",
+
+        // 8 (El Umbral, nueva: se puede cambiar)
+        "Ya estás aquí. Siéntate con nosotros en el círculo. El Pastor tiene el hilo listo. " +
+        "~Perdóname~ Cierra los ojos, Lucía. Yo te los coso."
     };
 }

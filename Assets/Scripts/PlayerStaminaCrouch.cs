@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.InputSystem;
 using StarterAssets;
 
@@ -57,6 +57,7 @@ public class PlayerStaminaCrouch : MonoBehaviour
 
     void Update()
     {
+        if (PauseMenu.IsPaused) return;   // en pausa no se agacha ni se levanta
         UpdateCrouch();
         UpdateStamina();
     }
@@ -96,9 +97,8 @@ public class PlayerStaminaCrouch : MonoBehaviour
 
     void UpdateCrouch()
     {
-        // Mantener presionada la tecla C (o Ctrl izquierdo) para agacharse
-        bool crouchKey = Keyboard.current != null &&
-                         (Keyboard.current.cKey.isPressed || Keyboard.current.leftCtrlKey.isPressed);
+        // Mantener presionado Ctrl izquierdo (o C) para agacharse. Se puede cambiar en Controles.
+        bool crouchKey = GameInput.CrouchHeld;
 
         if (crouchKey)
         {
@@ -137,6 +137,7 @@ public class PlayerStaminaCrouch : MonoBehaviour
     // Barra de estamina sencilla en pantalla (temporal, para pruebas)
     void OnGUI()
     {
+        if (PauseMenu.IsPaused) return; // el menú de pausa va encima
         float w = 200f, h = 14f;
         GUI.Box(new Rect(20, 20, w, h), "");
         Color old = GUI.color;

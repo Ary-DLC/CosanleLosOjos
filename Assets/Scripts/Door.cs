@@ -46,16 +46,25 @@ public class Door : MonoBehaviour, IInteractable
             {
                 Unlock();
                 player.ShowMessage("Abriste la puerta con la llave.");
+                GameAudio.PlayAt("llave", SoundPos(), 1f, "SFX", 1.5f);
             }
             else
             {
                 player.ShowMessage("Está cerrada. Necesitas una llave.");
+                GameAudio.PlayAt("puerta_cerrada_llave", SoundPos(), 1f, "SFX", 1.5f);
                 return;
             }
         }
 
         isOpen = !isOpen;
         NoiseSystem.MakeNoise(transform.position, noiseRadius, "puerta " + name);
+        GameAudio.PlayAt(isOpen ? "puerta_abrir" : "puerta_cerrar", SoundPos(), 1f, "SFX", 2f);
+    }
+
+    // El sonido sale del centro de la hoja (la raíz es la bisagra)
+    Vector3 SoundPos()
+    {
+        return transform.position + transform.right * 0.7f + Vector3.up * 1.2f;
     }
 
     void Unlock()
@@ -70,6 +79,10 @@ public class Door : MonoBehaviour, IInteractable
     // El enemigo abre las puertas que no tienen llave
     public void OpenByEnemy()
     {
-        if (!locked && !isOpen) isOpen = true;
+        if (!locked && !isOpen)
+        {
+            isOpen = true;
+            GameAudio.PlayAt("puerta_azotar", SoundPos(), 1f, "SFX", 2f);   // la azota al pasar
+        }
     }
 }

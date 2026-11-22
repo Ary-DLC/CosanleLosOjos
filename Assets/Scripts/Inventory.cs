@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -29,12 +29,10 @@ public class Inventory : MonoBehaviour
 
     void Update()
     {
-        Keyboard kb = Keyboard.current;
-        if (kb == null) return;
         if (NoteReader.BlocksInput) return; // leyendo una nota
 
         // H: usar una venda
-        if (kb.hKey.wasPressedThisFrame)
+        if (GameInput.BandagePressed)
         {
             if (bandages <= 0)
                 interaction.ShowMessage("No tienes vendas.");
@@ -98,6 +96,7 @@ public class Inventory : MonoBehaviour
 
     void OnGUI()
     {
+        if (PauseMenu.IsPaused) return; // el menú de pausa va encima
         // Contadores arriba a la derecha
         float x = Screen.width - 170f;
         GUI.Label(new Rect(x, 20, 160, 20), "Llaves: " + keys.Count + "/" + totalKeys);

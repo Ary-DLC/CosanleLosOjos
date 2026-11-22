@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.InputSystem;
 
 // T07 - Interacción (recoger objetos y abrir puertas)
@@ -42,7 +42,7 @@ public class PlayerInteraction : MonoBehaviour
         }
 
         // Si estamos mirando algo y presionamos E, interactuamos
-        if (current != null && Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame)
+        if (current != null && GameInput.InteractPressed)   // E (se puede cambiar en Controles)
         {
             current.Interact(this);
         }
@@ -57,6 +57,7 @@ public class PlayerInteraction : MonoBehaviour
 
     void OnGUI()
     {
+        if (PauseMenu.IsPaused) return; // el menú de pausa va encima
         float cx = Screen.width / 2f;
         float cy = Screen.height / 2f;
 

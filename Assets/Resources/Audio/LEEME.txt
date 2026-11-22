@@ -1,25 +1,10 @@
-Pon aquí sonidos reales (.wav, .ogg o .mp3) con EXACTAMENTE estos nombres (sin contar la extensión).
-Si un archivo no existe, SoundManager genera ese sonido por código.
-En las variaciones puedes poner menos archivos (ej. solo WalkSteps1 y WalkSteps2): usa los que encuentre.
+﻿Sonidos del juego. SoundManager y GameAudio los cargan por NOMBRE (sin extensión).
+Si falta alguno, el juego no truena: avisa en la Console y ese sonido no suena.
 
-JUGADORA
-  WalkSteps1 ... WalkSteps6     pasos caminando en piedra (uno por archivo, cortos)
-  RunSteps1  ... RunSteps6      pasos corriendo
-  TiredBreathing                UNA respiración agitada (inhalar + exhalar, ~1 s). Se repite sola más rápido con el cansancio
-  Heartbeat                     UN latido "lub-dub" (~0.6 s). Se repite solo según la vida
-  HurtSound                     quejido corto
-
-AMBIENTE
-  Ambience                      ambiente de fondo en loop (zumbido / viento)
-  Drips1 ... Drips4             gotas sueltas
-  Creaks1 ... Creaks3           crujidos sueltos
-
-INTERFAZ
-  PaperSound                    papel al abrir una nota
-  SaveSound                     al guardar en un confesionario
-
-ENEMIGO
-  EnemySteps1 ... EnemySteps6   pasos arrastrados
-  EnemyGrowl                    respiración ronca en loop
-  EnemyScream                   grito al verte
-  EnemyAttack                   golpe al atacar
+En loop: ambiente_seminario, ambiente_catacumbas, ambiente_umbral, musica_menu, musica_persecucion,
+         pasos_caminar, pasos_correr, pasos_agua, respiracion_cansada, latidos,
+         enemigo_pasos, enemigo_grunido, enemigo_susurros
+Una vez (se cortan a 1-3 s con fade): golpe_jugador, quejido_jugador, muerte_jugador, puerta_abrir,
+         puerta_cerrar, puerta_azotar, puerta_cerrada_llave, casillero_abrir, casillero_cerrar,
+         recoger_objeto, recoger_nota, llave, botella_romper, vision_nocturna_on, vision_nocturna_off,
+         bateria_baja, guardado, enemigo_grito, menu_click, menu_iniciar

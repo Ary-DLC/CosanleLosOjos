@@ -29,6 +29,8 @@ public class Pickup : MonoBehaviour, IInteractable
             return; // no cabe, se queda en el suelo
         }
 
+        GameAudio.Play2D(type == ItemType.Llave ? "llave" : "recoger_objeto", 0.9f, "SFX", 1.5f);
+
         if (type == ItemType.Nota)
             player.ShowMessage("Recogiste: " + itemName + " (mantén Tab para leer)");
         else

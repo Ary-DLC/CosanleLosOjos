@@ -1,74 +1,48 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.SceneManagement;
 using StarterAssets;
 
-// T20 - Sistema de sonido para las catacumbas
-// Se agrega al objeto PlayerCapsule. TODO lo demás (AudioSource, reverb, filtros) se crea por código.
+// T20 - Sistema de sonido (archivos reales de Assets/Resources/Audio)
+// Se agrega al objeto PlayerCapsule. Las AudioSource, el reverb y los filtros se crean por código.
+// Si falta un archivo, GameAudio avisa en la Console y ese sonido simplemente no suena.
 //
-// ¿De dónde sale cada sonido? En este orden:
-//   1. Si arrastraste un AudioClip al campo en el Inspector, usa ese.
-//   2. Si existe Assets/Resources/Audio/<Nombre> (ej. "Heartbeat", "WalkSteps1"), usa ese archivo.
-//   3. Si no hay nada, lo genera por código (SoundSynth.cs).
+// En loop:  ambiente de la escena, música de persecución, pasos (caminar/correr/agua),
+//           respiración cansada, latidos y, en cada enemigo (3D): pasos, gruñido y susurros.
+// Una vez:  golpe y quejido al recibir daño, muerte, visión nocturna on/off, batería baja,
+//           grito del enemigo al verte, papel y guardado.
 public class SoundManager : MonoBehaviour
 {
     public static SoundManager Instance;   // para que NoteReader y SaveSystem lo llamen fácil
 
-    [Header("Sonidos (opcional: si se quedan vacíos se cargan o se generan solos)")]
-    public AudioClip[] walkSteps;      // Resources/Audio/WalkSteps1 ... WalkSteps6
-    public AudioClip[] runSteps;       // RunSteps1 ... RunSteps6
-    public AudioClip tiredBreathing;   // TiredBreathing  (UNA respiración: inhalar + exhalar)
-    public AudioClip heartbeat;        // Heartbeat       (UN latido: lub-dub)
-    public AudioClip hurtSound;        // HurtSound
-    public AudioClip ambience;         // Ambience        (loop)
-    public AudioClip[] drips;          // Drips1 ... Drips4
-    public AudioClip[] creaks;         // Creaks1 ... Creaks3
-    public AudioClip paperSound;       // PaperSound
-    public AudioClip saveSound;        // SaveSound
-    public AudioClip[] enemySteps;     // EnemySteps1 ... EnemySteps6
-    public AudioClip enemyGrowl;       // EnemyGrowl      (loop)
-    public AudioClip enemyScream;      // EnemyScream
-    public AudioClip enemyAttack;      // EnemyAttack
-
     [Header("Mezcla (volúmenes)")]
-    [Range(0f, 1f)] public float master = 1f;
-    [Range(0f, 1f)] public float ambienceVolume = 0.22f;   // bajo
-    [Range(0f, 1f)] public float stepsVolume = 0.45f;      // medio
-    [Range(0f, 1f)] public float breathVolume = 0.5f;
-    [Range(0f, 1f)] public float heartVolume = 0.9f;       // destacado
-    [Range(0f, 1f)] public float enemyVolume = 1f;         // destacado
-    [Range(0f, 1f)] public float uiVolume = 0.6f;
-    [Range(0f, 1f)] public float hurtVolume = 0.8f;
+    [Range(0f, 1f)] public float ambienceVolume = 0.45f;
+    [Range(0f, 1f)] public float chaseMusicVolume = 0.7f;
+    [Range(0f, 1f)] public float stepsVolume = 0.5f;
+    [Range(0f, 1f)] public float breathVolume = 0.6f;
+    [Range(0f, 1f)] public float heartVolume = 0.9f;
+    [Range(0f, 1f)] public float enemyVolume = 1f;
 
-    [Header("Pasos")]
-    public float walkInterval = 0.5f;
-    public float runInterval = 0.32f;
-    public float crouchInterval = 0.75f;
-
-    [Header("Ambiente")]
-    public Vector2 ambientEventDelay = new Vector2(2f, 7f);   // cada cuánto suena una gota o un crujido
+    [Header("Ambiente (vacío = según el nombre de la escena)")]
+    public string ambienceName = "";
     public AudioReverbPreset reverbPreset = AudioReverbPreset.StoneCorridor;
 
     [Header("Enemigo")]
-    public float enemyStepInterval = 0.65f;
-    public float occludedCutoff = 900f;   // con una pared en medio solo pasan los graves (Hz)
+    public float occludedCutoff = 900f;    // con una pared en medio solo pasan los graves (Hz)
 
-    // ---- Lo que se crea por código ----
-    private AudioSource stepSource, breathSource, heartSource, ambienceSource, uiSource, saveSource, hurtSource;
-    private AudioSource[] ambientPool = new AudioSource[3];   // fuentes 3D para gotas y crujidos
-    private int ambientIndex;
+    // ---- Fuentes en loop ----
+    private AudioSource ambience, chaseMusic, steps, breath, heart;
+    private string currentSteps = "";
 
-    // Cosas de cada enemigo
     class EnemySound
     {
         public EnemyAI ai;
         public NavMeshAgent agent;
-        public AudioSource growl;           // respiración en loop
-        public AudioSource voice;           // pasos, grito y golpe
-        public AudioLowPassFilter growlFilter, voiceFilter;
-        public float stepTimer, checkTimer, screamCooldown;
-        public float cutoff = 22000f;
-        public bool blocked;                // ¿hay una pared entre él y la jugadora?
+        public AudioSource steps, growl, whispers;
+        public AudioLowPassFilter[] filters;
+        public float checkTimer, screamCooldown, cutoff = 22000f;
+        public bool blocked;
         public EnemyAI.State lastState;
     }
     private List<EnemySound> enemies = new List<EnemySound>();
@@ -78,10 +52,12 @@ public class SoundManager : MonoBehaviour
     private PlayerStaminaCrouch stamina;
     private PlayerHealth health;
     private PlayerHiding hiding;
-    private Transform listener;   // la cámara (donde están los "oídos")
+    private NightVisionCamera nightVision;
+    private Transform listener;
+    private List<Transform> puddles = new List<Transform>();
 
-    private float stepTimer, breathTimer, heartTimer, ambientTimer;
     private float lastHitTime = -100f;
+    private bool wasDead, wasNightVision, batteryWarned;
 
     void Awake()
     {
@@ -95,91 +71,69 @@ public class SoundManager : MonoBehaviour
         stamina = GetComponent<PlayerStaminaCrouch>();
         health = GetComponent<PlayerHealth>();
         hiding = GetComponent<PlayerHiding>();
+        nightVision = GetComponent<NightVisionCamera>();
         listener = Camera.main.transform;
 
-        LoadAllSounds();
         CreateReverb();
-        CreatePlayerSources();
-        CreateEnemySources();
 
-        ambienceSource.clip = ambience;
-        ambienceSource.Play();
-        ambientTimer = Random.Range(ambientEventDelay.x, ambientEventDelay.y);
-    }
-
-    void Update()
-    {
-        UpdateSteps();
-        UpdateBreathing();
-        UpdateHeartbeat();
-        UpdateHurt();
-        UpdateAmbient();
-        UpdateEnemies();
-    }
-
-    // ================= CARGAR O GENERAR =================
-
-    void LoadAllSounds()
-    {
-        walkSteps    = GetSet(walkSteps, "WalkSteps", 6, i => SoundSynth.StoneStep(i, false));
-        runSteps     = GetSet(runSteps, "RunSteps", 6, i => SoundSynth.StoneStep(i, true));
-        enemySteps   = GetSet(enemySteps, "EnemySteps", 6, i => SoundSynth.EnemyDragStep(i));
-        drips        = GetSet(drips, "Drips", 4, i => SoundSynth.Drip(i));
-        creaks       = GetSet(creaks, "Creaks", 3, i => SoundSynth.Creak(i));
-
-        tiredBreathing = Get(tiredBreathing, "TiredBreathing", SoundSynth.TiredBreath);
-        heartbeat      = Get(heartbeat, "Heartbeat", SoundSynth.Heartbeat);
-        hurtSound      = Get(hurtSound, "HurtSound", SoundSynth.Hurt);
-        ambience       = Get(ambience, "Ambience", SoundSynth.Ambience);
-        paperSound     = Get(paperSound, "PaperSound", SoundSynth.Paper);
-        saveSound      = Get(saveSound, "SaveSound", SoundSynth.SaveBell);
-        enemyGrowl     = Get(enemyGrowl, "EnemyGrowl", SoundSynth.EnemyGrowl);
-        enemyScream    = Get(enemyScream, "EnemyScream", SoundSynth.EnemyScream);
-        enemyAttack    = Get(enemyAttack, "EnemyAttack", SoundSynth.EnemyAttack);
-    }
-
-    // Un solo sonido: Inspector > archivo en Resources/Audio > generado
-    AudioClip Get(AudioClip assigned, string fileName, System.Func<AudioClip> generate)
-    {
-        if (assigned != null) return assigned;
-
-        AudioClip file = Resources.Load<AudioClip>("Audio/" + fileName);
-        if (file != null)
+        // Ambiente según la escena
+        string amb = ambienceName;
+        if (amb.Length == 0)
         {
-            Debug.Log("[Sonido] Usando archivo Resources/Audio/" + fileName);
-            return file;
+            string scene = SceneManager.GetActiveScene().name;
+            if (scene.Contains("Catacumbas")) amb = "ambiente_catacumbas";
+            else if (scene.Contains("Umbral")) amb = "ambiente_umbral";
+            else amb = "ambiente_seminario";
         }
-        return generate();
+        ambience = GameAudio.Loop(transform, amb, "Music", false, ambienceVolume * GameAudio.Fallback("Music"));
+        chaseMusic = GameAudio.Loop(transform, "musica_persecucion", "Music", false, 0f);
+        steps = GameAudio.Loop(transform, "pasos_caminar", "SFX", false, 0f);
+        currentSteps = "pasos_caminar";
+        breath = GameAudio.Loop(transform, "respiracion_cansada", "SFX", false, 0f);
+        heart = GameAudio.Loop(transform, "latidos", "SFX", false, 0f);
+        heart.bypassReverbZones = true;   // los latidos se oyen "por dentro"
+
+        // Charcos (para los pasos en agua)
+        foreach (Transform t in FindObjectsByType<Transform>(FindObjectsSortMode.None))
+            if (t.name.StartsWith("Charco") || t.name.Contains("Calcomanía Charco")) puddles.Add(t);
+
+        foreach (EnemyAI ai in EnemyAI.All) AddEnemy(ai);
+
+        if (nightVision != null) wasNightVision = nightVision.IsOn;
     }
 
-    // Varios sonidos (variaciones): busca Nombre1, Nombre2... y si no hay ninguno, genera "count"
-    AudioClip[] GetSet(AudioClip[] assigned, string baseName, int count, System.Func<int, AudioClip> generate)
+    void AddEnemy(EnemyAI ai)
     {
-        if (assigned != null && assigned.Length > 0) return assigned;
+        EnemySound e = new EnemySound();
+        e.ai = ai;
+        e.agent = ai.GetComponent<NavMeshAgent>();
+        e.lastState = ai.state;
 
-        List<AudioClip> found = new List<AudioClip>();
-        for (int i = 1; i <= count; i++)
-        {
-            AudioClip file = Resources.Load<AudioClip>("Audio/" + baseName + i);
-            if (file != null) found.Add(file);
-        }
-        if (found.Count > 0)
-        {
-            Debug.Log("[Sonido] Usando " + found.Count + " archivo(s) Resources/Audio/" + baseName + "N");
-            return found.ToArray();
-        }
+        // Sonidos 3D a la altura de la boca, cada uno con su filtro (para las paredes)
+        GameObject mouth = new GameObject("Sonidos del enemigo");
+        mouth.transform.SetParent(ai.transform, false);
+        mouth.transform.localPosition = Vector3.up * 1.5f;
+        e.steps = GameAudio.Loop(mouth.transform, "enemigo_pasos", "SFX", true, 0f);
+        e.growl = GameAudio.Loop(mouth.transform, "enemigo_grunido", "Voices", true, 0f);
+        e.whispers = GameAudio.Loop(mouth.transform, "enemigo_susurros", "Voices", true, 0f);
+        e.filters = new[] { Filter(e.steps), Filter(e.growl), Filter(e.whispers) };
 
-        AudioClip[] clips = new AudioClip[count];
-        for (int i = 0; i < count; i++) clips[i] = generate(i);
-        return clips;
+        // Que no suenen todos igual
+        foreach (AudioSource s in new[] { e.growl, e.whispers })
+            if (s.clip != null) s.time = Random.Range(0f, s.clip.length * 0.9f);
+        enemies.Add(e);
     }
 
-    // ================= CREAR FUENTES =================
+    static AudioLowPassFilter Filter(AudioSource s)
+    {
+        AudioLowPassFilter f = s.gameObject.AddComponent<AudioLowPassFilter>();
+        f.cutoffFrequency = 22000f;
+        return f;
+    }
 
-    // Eco de piedra para todo lo que suena (la zona va pegada a la jugadora, así siempre está dentro)
     void CreateReverb()
     {
-        GameObject go = new GameObject("Reverb Catacumbas");
+        GameObject go = new GameObject("Reverb");
         go.transform.SetParent(transform, false);
         AudioReverbZone zone = go.AddComponent<AudioReverbZone>();
         zone.reverbPreset = reverbPreset;
@@ -187,306 +141,167 @@ public class SoundManager : MonoBehaviour
         zone.maxDistance = 600f;
     }
 
-    void CreatePlayerSources()
+    void Update()
     {
-        // reverbMix: qué tanto eco le toca (los latidos son "por dentro": sin eco)
-        stepSource     = Create2D("Pasos", 1f);
-        breathSource   = Create2D("Respiracion", 0.3f);
-        heartSource    = Create2D("Latidos", 0f);
-        ambienceSource = Create2D("Ambiente", 1f);
-        uiSource       = Create2D("Papel", 0.2f);
-        saveSource     = Create2D("Guardar", 1f);
-        hurtSource     = Create2D("Dolor", 0.6f);
+        float dt = Time.unscaledDeltaTime;
+        bool dead = health != null && health.IsDead;
 
-        ambienceSource.loop = true;
-        ambienceSource.volume = ambienceVolume * master;
-
-        // Fuentes 3D sueltas en el mundo para gotas y crujidos alrededor de la jugadora
-        for (int i = 0; i < ambientPool.Length; i++)
-        {
-            GameObject go = new GameObject("Sonido Ambiente 3D " + i);
-            ambientPool[i] = go.AddComponent<AudioSource>();
-            Make3D(ambientPool[i]);
-        }
+        UpdateSteps(dt, dead);
+        UpdateBody(dt, dead);
+        UpdateEvents(dead);
+        UpdateEnemies(dt);
     }
 
-    void CreateEnemySources()
+    // ---------------- Jugadora ----------------
+
+    void UpdateSteps(float dt, bool dead)
     {
-        foreach (EnemyAI ai in EnemyAI.All)
-        {
-            EnemySound e = new EnemySound();
-            e.ai = ai;
-            e.agent = ai.GetComponent<NavMeshAgent>();
-            e.lastState = ai.state;
-
-            // Cada fuente en su propio hijo, con su propio filtro (un filtro afecta a la fuente de su objeto)
-            e.growl = CreateEnemyChild(ai, "Respiracion", out e.growlFilter);
-            e.voice = CreateEnemyChild(ai, "Voz y pasos", out e.voiceFilter);
-
-            e.growl.clip = enemyGrowl;
-            e.growl.loop = true;
-            e.growl.volume = 0.7f * enemyVolume * master;
-            e.growl.time = Random.Range(0f, enemyGrowl.length * 0.9f); // que no todos respiren igual
-            e.growl.Play();
-
-            enemies.Add(e);
-        }
-    }
-
-    AudioSource CreateEnemyChild(EnemyAI ai, string childName, out AudioLowPassFilter filter)
-    {
-        GameObject go = new GameObject("Sonido " + childName);
-        go.transform.SetParent(ai.transform, false);
-        go.transform.localPosition = Vector3.up * (ai.eyeHeight - 0.2f); // a la altura de la boca
-        AudioSource s = go.AddComponent<AudioSource>();
-        Make3D(s);
-        filter = go.AddComponent<AudioLowPassFilter>();
-        filter.cutoffFrequency = 22000f;
-        return s;
-    }
-
-    AudioSource Create2D(string sourceName, float reverbMix)
-    {
-        GameObject go = new GameObject("Sonido " + sourceName);
-        go.transform.SetParent(transform, false);
-        AudioSource s = go.AddComponent<AudioSource>();
-        s.playOnAwake = false;
-        s.spatialBlend = 0f;           // 2D: igual en los dos oídos
-        s.reverbZoneMix = reverbMix;
-        return s;
-    }
-
-    // 3D: suena desde donde está, más bajito entre más lejos
-    void Make3D(AudioSource s)
-    {
-        s.playOnAwake = false;
-        s.spatialBlend = 1f;
-        s.rolloffMode = AudioRolloffMode.Logarithmic;
-        s.minDistance = 1f;
-        s.maxDistance = 20f;
-        s.dopplerLevel = 0f;
-        s.reverbZoneMix = 1f;
-    }
-
-    // ================= JUGADORA =================
-
-    void UpdateSteps()
-    {
-        bool moving = input.move != Vector2.zero && fpc.Grounded && fpc.enabled;
-        if (!moving)
-        {
-            stepTimer = 0f;
-            return;
-        }
-
+        bool moving = !dead && input.move != Vector2.zero && fpc.Grounded && fpc.enabled;
         bool crouching = stamina != null && stamina.IsCrouching;
-        bool running = input.sprint && !crouching && (stamina == null || !stamina.IsExhausted);
-        float interval = running ? runInterval : (crouching ? crouchInterval : walkInterval);
+        bool running = moving && input.sprint && !crouching && (stamina == null || !stamina.IsExhausted);
 
-        stepTimer += Time.deltaTime;
-        if (stepTimer >= interval)
+        string clip = InWater() ? "pasos_agua" : (running ? "pasos_correr" : "pasos_caminar");
+        if (clip != currentSteps)
         {
-            stepTimer = 0f;
-            float volume = stepsVolume * (crouching ? 0.35f : (running ? 1.2f : 1f));
-            PlayVaried(stepSource, running ? runSteps : walkSteps, volume);
+            currentSteps = clip;
+            steps.clip = GameAudio.Clip(clip);
+            if (steps.clip != null) steps.Play();
         }
+        steps.pitch = crouching ? 0.8f : 1f;
+        float target = moving ? stepsVolume * (crouching ? 0.35f : 1f) : 0f;
+        steps.volume = Mathf.MoveTowards(steps.volume, target * GameAudio.Fallback("SFX"), dt * 4f);
     }
 
-    // Respiraciones sueltas que se repiten más rápido entre más cansada está
-    void UpdateBreathing()
+    bool InWater()
     {
+        Vector3 p = transform.position;
+        foreach (Transform t in puddles)
+        {
+            if (t == null) continue;
+            Vector3 d = t.position - p;
+            d.y = 0f;
+            if (d.sqrMagnitude < 1.3f * 1.3f) return true;
+        }
+        return false;
+    }
+
+    void UpdateBody(float dt, bool dead)
+    {
+        // Respiración: más fuerte entre más cansada; en silencio si contiene la respiración
         float tired = 0f;
-        if (stamina != null)
-            tired = stamina.IsExhausted ? 1f : Mathf.InverseLerp(stamina.maxStamina * 0.6f, 0f, stamina.Stamina);
-
-        // Conteniendo la respiración en el locker: silencio
+        if (stamina != null) tired = stamina.IsExhausted ? 1f : Mathf.InverseLerp(stamina.maxStamina * 0.6f, 0f, stamina.Stamina);
         if (hiding != null && hiding.IsHoldingBreath) tired = 0f;
+        if (dead) tired = 0f;
+        breath.volume = Mathf.MoveTowards(breath.volume, breathVolume * tired * GameAudio.Fallback("SFX"), dt);
+        breath.pitch = Mathf.Lerp(0.95f, 1.12f, tired);
 
-        if (tired < 0.05f)
+        // Latidos: con poca vida o cuando te persiguen
+        float h = 0f, pitch = 1f;
+        if (!dead && health != null)
         {
-            breathTimer = 0f;
-            return;
+            if (health.Health <= 1) { h = 1f; pitch = 1.3f; }
+            else if (health.Health < health.maxHealth) { h = 0.5f; pitch = 1.1f; }
         }
+        bool chased = AnyChasing();
+        if (chased && !dead) { h = Mathf.Max(h, 0.7f); pitch = Mathf.Max(pitch, 1.15f); }
+        heart.volume = Mathf.MoveTowards(heart.volume, heartVolume * h * GameAudio.Fallback("SFX"), dt);
+        heart.pitch = pitch;
 
-        breathTimer -= Time.deltaTime;
-        if (breathTimer <= 0f)
-        {
-            breathTimer = Mathf.Lerp(2.6f, 1.0f, tired);          // más cansada = más seguido
-            breathSource.pitch = Mathf.Lerp(0.95f, 1.15f, tired) * Random.Range(0.97f, 1.03f);
-            breathSource.PlayOneShot(tiredBreathing, breathVolume * master * Mathf.Lerp(0.4f, 1f, tired));
-        }
+        // Música de persecución: entra rápido y sale lento; el ambiente baja mientras suena
+        float chaseTarget = chased && !dead ? chaseMusicVolume : 0f;
+        chaseMusic.volume = Mathf.MoveTowards(chaseMusic.volume, chaseTarget * GameAudio.Fallback("Music"), dt * (chased ? 1f : 0.25f));
+        float ambTarget = ambienceVolume * (chased ? 0.5f : 1f);
+        ambience.volume = Mathf.MoveTowards(ambience.volume, ambTarget * GameAudio.Fallback("Music"), dt * 0.5f);
     }
 
-    // Latidos: más rápidos y fuertes con poca vida (y cuando el enemigo te persigue)
-    void UpdateHeartbeat()
+    bool AnyChasing()
     {
-        float bpm = 0f, volume = 0f;
-        if (health != null && !health.IsDead)
-        {
-            if (health.Health <= 1) { bpm = 130f; volume = 1f; }
-            else if (health.Health < health.maxHealth) { bpm = 85f; volume = 0.5f; }
-        }
         foreach (EnemySound e in enemies)
+            if (e.ai != null && e.ai.enabled && e.ai.state == EnemyAI.State.Perseguir) return true;
+        return false;
+    }
+
+    // Cosas que pasan una vez (se revisan cada cuadro, así no hay que cambiar otros scripts)
+    void UpdateEvents(bool dead)
+    {
+        if (health != null && health.LastHitTime != lastHitTime)
         {
-            if (e.ai != null && e.ai.state == EnemyAI.State.Perseguir)
+            if (health.LastHitTime > lastHitTime)
             {
-                bpm = Mathf.Max(bpm, 110f);
-                volume = Mathf.Max(volume, 0.7f);
+                GameAudio.Play2D("golpe_jugador", 1f, "SFX", 1.5f);
+                GameAudio.Play2D("quejido_jugador", 0.9f, "Voices", 2f);
             }
+            lastHitTime = health.LastHitTime;
         }
 
-        if (volume <= 0f)
-        {
-            heartTimer = 0f;
-            return;
-        }
+        if (dead && !wasDead) GameAudio.Play2D("muerte_jugador", 1f, "Voices", 3f);
+        wasDead = dead;
 
-        heartTimer -= Time.deltaTime;
-        if (heartTimer <= 0f)
+        if (nightVision != null)
         {
-            heartTimer = 60f / bpm;   // segundos entre latidos
-            heartSource.PlayOneShot(heartbeat, heartVolume * master * volume);
+            if (nightVision.IsOn != wasNightVision)
+                GameAudio.Play2D(nightVision.IsOn ? "vision_nocturna_on" : "vision_nocturna_off", 0.8f, "SFX", 1.5f);
+            wasNightVision = nightVision.IsOn;
+
+            bool low = nightVision.IsOn && nightVision.Battery < nightVision.maxBattery * 0.2f;
+            if (low && !batteryWarned) GameAudio.Play2D("bateria_baja", 0.8f, "SFX", 2f);
+            batteryWarned = low || (batteryWarned && nightVision.Battery < nightVision.maxBattery * 0.25f);
         }
     }
 
-    // ¿Recibió un golpe? (PlayerHealth guarda la hora del último golpe)
-    void UpdateHurt()
-    {
-        if (health == null || health.LastHitTime == lastHitTime) return;
+    // ---------------- Enemigos (3D) ----------------
 
-        if (health.LastHitTime > lastHitTime)
-        {
-            hurtSource.pitch = Random.Range(0.95f, 1.05f);
-            hurtSource.PlayOneShot(hurtSound, hurtVolume * master);
-
-            EnemySound closest = ClosestEnemy();
-            if (closest != null) closest.voice.PlayOneShot(enemyAttack, enemyVolume * master);
-        }
-        lastHitTime = health.LastHitTime;
-    }
-
-    // Gotas y crujidos al azar, en algún lugar alrededor de la jugadora
-    void UpdateAmbient()
-    {
-        ambienceSource.volume = ambienceVolume * master;
-
-        ambientTimer -= Time.deltaTime;
-        if (ambientTimer > 0f) return;
-        ambientTimer = Random.Range(ambientEventDelay.x, ambientEventDelay.y);
-
-        bool drip = Random.value < 0.7f;
-        AudioClip[] set = drip ? drips : creaks;
-        if (set.Length == 0) return;
-
-        // Posición al azar: a unos metros, las gotas caen desde el techo
-        Vector2 circle = Random.insideUnitCircle.normalized * Random.Range(3f, 12f);
-        Vector3 position = listener.position + new Vector3(circle.x, drip ? Random.Range(1f, 2.5f) : Random.Range(-0.5f, 1.5f), circle.y);
-
-        AudioSource s = ambientPool[ambientIndex];
-        ambientIndex = (ambientIndex + 1) % ambientPool.Length;
-        s.transform.position = position;
-        PlayVaried(s, set, (drip ? 0.5f : 0.35f) * master);
-    }
-
-    // ================= ENEMIGO =================
-
-    void UpdateEnemies()
+    void UpdateEnemies(float dt)
     {
         foreach (EnemySound e in enemies)
         {
             if (e.ai == null) continue;
+            bool active = e.ai.enabled;
+            bool chasing = active && e.ai.state == EnemyAI.State.Perseguir;
 
-            UpdateOcclusion(e);
-
-            // Grito cuando empieza a perseguirte (no más de uno cada 6 segundos)
-            e.screamCooldown -= Time.deltaTime;
-            if (e.ai.state == EnemyAI.State.Perseguir && e.lastState != EnemyAI.State.Perseguir && e.screamCooldown <= 0f)
+            // Grito al empezar a perseguir (no más de uno cada 6 s)
+            e.screamCooldown -= dt;
+            if (chasing && e.lastState != EnemyAI.State.Perseguir && e.screamCooldown <= 0f)
             {
-                e.voice.pitch = Random.Range(0.95f, 1.05f);
-                e.voice.PlayOneShot(enemyScream, enemyVolume * master);
+                AudioClip scream = GameAudio.Clip("enemigo_grito");
+                if (scream != null) e.growl.PlayOneShot(scream, enemyVolume);
                 e.screamCooldown = 6f;
             }
-            e.lastState = e.ai.state;
+            if (active) e.lastState = e.ai.state;
 
-            // Arrastre de pies mientras camina (más seguido si corre)
-            bool walking = e.agent != null && e.agent.velocity.magnitude > 0.2f;
-            if (!walking)
-            {
-                e.stepTimer = 0f;
-                continue;
-            }
-            float interval = e.ai.state == EnemyAI.State.Perseguir ? enemyStepInterval * 0.6f : enemyStepInterval;
-            e.stepTimer += Time.deltaTime;
-            if (e.stepTimer >= interval)
-            {
-                e.stepTimer = 0f;
-                PlayVaried(e.voice, enemySteps, 0.8f * enemyVolume * master);
-            }
+            // Pasos mientras camina (más rápidos si corre)
+            float speed = e.agent != null ? e.agent.velocity.magnitude : 0f;
+            float fall = GameAudio.Fallback("SFX"), vfall = GameAudio.Fallback("Voices");
+            e.steps.volume = Mathf.MoveTowards(e.steps.volume, (speed > 0.2f ? 0.9f : 0f) * enemyVolume * fall, dt * 3f);
+            e.steps.pitch = Mathf.Clamp(0.8f + speed * 0.1f, 0.8f, 1.35f);
+
+            // Gruñido siempre bajito; susurros cuando no persigue
+            float wall = e.blocked ? 0.6f : 1f;
+            e.growl.volume = Mathf.MoveTowards(e.growl.volume, (chasing ? 0.8f : 0.45f) * enemyVolume * wall * vfall, dt);
+            e.whispers.volume = Mathf.MoveTowards(e.whispers.volume, (chasing ? 0f : 0.55f) * enemyVolume * wall * vfall, dt * 0.5f);
+
+            UpdateOcclusion(e, dt);
         }
     }
 
-    // Si hay una pared entre el enemigo y la jugadora, sus sonidos se oyen apagados (sin agudos)
-    void UpdateOcclusion(EnemySound e)
+    // Si hay una pared entre el enemigo y la jugadora, se oye apagado (sin agudos)
+    void UpdateOcclusion(EnemySound e, float dt)
     {
-        e.checkTimer -= Time.deltaTime;
+        e.checkTimer -= dt;
         if (e.checkTimer <= 0f)
         {
-            e.checkTimer = 0.1f; // revisamos 10 veces por segundo (es suficiente)
-            Vector3 from = e.voice.transform.position;
+            e.checkTimer = 0.1f;
+            Vector3 from = e.ai.transform.position + Vector3.up * 1.5f;
             e.blocked = false;
             if (Physics.Linecast(from, listener.position, out RaycastHit hit, ~0, QueryTriggerInteraction.Ignore))
-            {
-                // Lo que choca no cuenta si es la propia jugadora o el propio enemigo
-                bool isPlayer = hit.transform.IsChildOf(transform);
-                bool isEnemy = hit.transform.IsChildOf(e.ai.transform);
-                e.blocked = !isPlayer && !isEnemy;
-            }
+                e.blocked = !hit.transform.IsChildOf(transform) && !hit.transform.IsChildOf(e.ai.transform);
         }
-
-        float target = e.blocked ? occludedCutoff : 22000f;
-        e.cutoff = Mathf.Lerp(e.cutoff, target, 8f * Time.deltaTime);
-        e.growlFilter.cutoffFrequency = e.cutoff;
-        e.voiceFilter.cutoffFrequency = e.cutoff;
-
-        // Detrás de la pared también se oye un poco más bajito
-        float wallVolume = e.blocked ? 0.6f : 1f;
-        e.growl.volume = Mathf.Lerp(e.growl.volume, 0.7f * enemyVolume * master * wallVolume, 8f * Time.deltaTime);
+        e.cutoff = Mathf.Lerp(e.cutoff, e.blocked ? occludedCutoff : 22000f, 8f * dt);
+        foreach (AudioLowPassFilter f in e.filters) f.cutoffFrequency = e.cutoff;
     }
 
-    EnemySound ClosestEnemy()
-    {
-        EnemySound best = null;
-        float bestDistance = float.MaxValue;
-        foreach (EnemySound e in enemies)
-        {
-            if (e.ai == null) continue;
-            float d = Vector3.Distance(e.ai.transform.position, transform.position);
-            if (d < bestDistance) { bestDistance = d; best = e; }
-        }
-        return best;
-    }
+    // ---------------- Para otros scripts ----------------
 
-    // ================= PARA OTROS SCRIPTS =================
-
-    public void PlayPaper()  // NoteReader
-    {
-        uiSource.pitch = Random.Range(0.95f, 1.05f);
-        uiSource.PlayOneShot(paperSound, uiVolume * master);
-    }
-
-    public void PlaySave()   // SaveSystem
-    {
-        saveSource.PlayOneShot(saveSound, uiVolume * master);
-    }
-
-    // ================= AYUDANTES =================
-
-    // Elige una variación al azar y le cambia un poco el tono y el volumen (±10%)
-    void PlayVaried(AudioSource s, AudioClip[] clips, float volume)
-    {
-        if (clips == null || clips.Length == 0) return;
-        AudioClip clip = clips[Random.Range(0, clips.Length)];
-        s.pitch = Random.Range(0.9f, 1.1f);
-        s.PlayOneShot(clip, volume * Random.Range(0.9f, 1.1f));
-    }
+    public void PlayPaper() { GameAudio.Play2D("recoger_nota", 0.9f, "SFX", 1.5f, true); }   // NoteReader
+    public void PlaySave()  { GameAudio.Play2D("guardado", 0.9f, "SFX", 3f); }               // SaveSystem
 }

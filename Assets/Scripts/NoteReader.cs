@@ -92,29 +92,26 @@ public class NoteReader : MonoBehaviour
 
     void Update()
     {
-        Keyboard kb = Keyboard.current;
-        if (kb == null) return;
-
         if (!IsOpen)
         {
-            // Tab: abrir el diario
-            if (kb.tabKey.wasPressedThisFrame) OpenDiary();
+            // Tab (Inventario): abrir el diario
+            if (GameInput.InventoryPressed) OpenDiary();
             return;
         }
 
         // La misma E que abrió la nota no la debe cerrar
         if (Time.frameCount == openFrame) return;
 
-        // Cerrar
-        if (kb.eKey.wasPressedThisFrame || kb.escapeKey.wasPressedThisFrame ||
-            (diaryMode && kb.tabKey.wasPressedThisFrame))
+        // Cerrar con Interactuar (E) o Pausa (Esc); el diario también con Tab
+        if (GameInput.ClosePressed || (diaryMode && GameInput.Inventory.WasPressedThisFrame()))
         {
             Close();
             return;
         }
 
         // En el diario: cambiar de nota en orden
-        if (diaryMode)
+        Keyboard kb = Keyboard.current;
+        if (diaryMode && kb != null)
         {
             int index = inventory.foundNotes.IndexOf(currentNote);
             int newIndex = index;

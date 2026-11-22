@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.SceneManagement;
 using StarterAssets;
 
@@ -105,6 +105,7 @@ public class PlayerHealth : MonoBehaviour
 
     void OnGUI()
     {
+        if (PauseMenu.IsPaused) return; // el menú de pausa va encima
         if (!IsDead) return;
 
         // Pantalla negra con texto
