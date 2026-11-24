@@ -37,5 +37,10 @@ public static class GameBootstrap
         GameObject go = new GameObject("Sistemas del juego (pausa y ajustes)");
         go.AddComponent<SettingsApplier>();
         go.AddComponent<PauseMenu>();
+        go.AddComponent<ObjectiveHUD>();   // objetivo y aviso de curación (arriba a la izquierda)
+        go.AddComponent<HorrorFX>();       // persecución, golpes y muerte
+
+        // Nivel 3: las velas rituales, la barrera y las monjas
+        if (scene.name.Contains("Umbral")) RitualManager.Build();
     }
 }

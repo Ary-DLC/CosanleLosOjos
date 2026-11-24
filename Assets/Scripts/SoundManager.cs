@@ -190,6 +190,8 @@ public class SoundManager : MonoBehaviour
         // Respiración: más fuerte entre más cansada; en silencio si contiene la respiración
         float tired = 0f;
         if (stamina != null) tired = stamina.IsExhausted ? 1f : Mathf.InverseLerp(stamina.maxStamina * 0.6f, 0f, stamina.Stamina);
+        bool hiddenNow = hiding != null && hiding.IsHidden;
+        if (AnyChasing() && !hiddenNow) tired = Mathf.Max(tired, 0.85f);   // respiración agitada al ser perseguida
         if (hiding != null && hiding.IsHoldingBreath) tired = 0f;
         if (dead) tired = 0f;
         breath.volume = Mathf.MoveTowards(breath.volume, breathVolume * tired * GameAudio.Fallback("SFX"), dt);
@@ -275,10 +277,17 @@ public class SoundManager : MonoBehaviour
             e.steps.volume = Mathf.MoveTowards(e.steps.volume, (speed > 0.2f ? 0.9f : 0f) * enemyVolume * fall, dt * 3f);
             e.steps.pitch = Mathf.Clamp(0.8f + speed * 0.1f, 0.8f, 1.35f);
 
-            // Gruñido siempre bajito; susurros cuando no persigue
+            // Gruñido siempre; susurros más fuertes y rápidos al perseguir; gritos sueltos en la persecución
             float wall = e.blocked ? 0.6f : 1f;
-            e.growl.volume = Mathf.MoveTowards(e.growl.volume, (chasing ? 0.8f : 0.45f) * enemyVolume * wall * vfall, dt);
-            e.whispers.volume = Mathf.MoveTowards(e.whispers.volume, (chasing ? 0f : 0.55f) * enemyVolume * wall * vfall, dt * 0.5f);
+            e.growl.volume = Mathf.MoveTowards(e.growl.volume, (chasing ? 0.85f : 0.45f) * enemyVolume * wall * vfall, dt);
+            e.whispers.volume = Mathf.MoveTowards(e.whispers.volume, (chasing ? 0.9f : 0.55f) * enemyVolume * wall * vfall, dt);
+            e.whispers.pitch = chasing ? 1.15f : 1f;
+            if (chasing && e.screamCooldown <= 0f)
+            {
+                AudioClip scream = GameAudio.Clip("enemigo_grito");
+                if (scream != null) e.growl.PlayOneShot(scream, 0.55f * enemyVolume);
+                e.screamCooldown = Random.Range(4f, 7f);
+            }
 
             UpdateOcclusion(e, dt);
         }

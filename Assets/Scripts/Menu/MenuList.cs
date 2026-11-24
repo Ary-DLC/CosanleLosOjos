@@ -820,6 +820,8 @@ public class ItemView : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 
     float hover;     // 0 = normal, 1 = con hover (cambia suave)
     float lastGlow = -1f;
+    float lastE = -1f;
+    bool wasWaiting;
 
     public void OnPointerEnter(PointerEventData e) { list.PointerEnter(this); }
     public void OnPointerExit(PointerEventData e) { list.PointerExit(this); }
@@ -850,6 +852,12 @@ public class ItemView : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         hover = Mathf.MoveTowards(hover, on ? 1f : 0f, dt / 0.25f);
         float e = MenuStyle.Ease(hover);
+
+        // Rendimiento: si nada cambió desde el cuadro anterior, no se toca nada (no se redibuja)
+        bool waiting = value != null && list.IsWaitingFor(this);
+        if (!waiting && !wasWaiting && Mathf.Abs(e - lastE) < 0.0005f) return;
+        lastE = e;
+        wasWaiting = waiting;
 
         if (item.sub == null)
             label.color = Color.Lerp(MenuStyle.Bone, MenuStyle.BoneLight, e);

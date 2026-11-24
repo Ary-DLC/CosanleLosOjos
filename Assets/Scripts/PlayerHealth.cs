@@ -11,6 +11,9 @@ public class PlayerHealth : MonoBehaviour
     public float invulnerableTime = 2f;  // después de un golpe, 2 s sin recibir más daño
     public float regenInterval = 5f;     // escondida, recupera 1 punto cada tantos segundos
     public float restartDelay = 3f;      // segundos antes de reiniciar al morir
+    public float deathCinematicTime = 3.2f;   // HorrorFX: la monja atrapa a la jugadora (antes de la pantalla de muerte)
+
+    private float deathTime;
 
     public int Health { get; private set; }
     public bool IsDead { get; private set; }
@@ -74,7 +77,8 @@ public class PlayerHealth : MonoBehaviour
         GetComponent<FirstPersonController>().enabled = false;
         GetComponent<PlayerInteraction>().enabled = false;
 
-        Invoke(nameof(Restart), restartDelay);
+        deathTime = Time.time;
+        Invoke(nameof(Restart), deathCinematicTime + restartDelay);
     }
 
     void Restart()
@@ -107,6 +111,7 @@ public class PlayerHealth : MonoBehaviour
     {
         if (PauseMenu.IsPaused) return; // el menú de pausa va encima
         if (!IsDead) return;
+        if (Time.time - deathTime < deathCinematicTime) return;   // primero la cinemática de la monja
 
         // Pantalla negra con texto
         Color old = GUI.color;

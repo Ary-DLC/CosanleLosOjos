@@ -46,6 +46,7 @@ public class FinalCinematic : MonoBehaviour
     void OnTriggerEnter(Collider other)
     {
         if (started || !other.CompareTag("Player")) return;
+        if (RitualManager.Instance != null && !RitualManager.Instance.Complete) return;   // primero las 4 velas
         started = true;
         StartCoroutine(Play(other.gameObject));
     }

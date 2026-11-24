@@ -69,6 +69,7 @@ public class MainMenu : MonoBehaviour
 
     void Awake()
     {
+        Application.targetFrameRate = 60;   // el menú no necesita más (ahorra GPU y batería)
         Time.timeScale = 1f;
         AudioListener.pause = false;
         Cursor.lockState = CursorLockMode.None;
@@ -203,6 +204,15 @@ public class MainMenu : MonoBehaviour
         // #black: fundido a negro
         black = MenuStyle.CreateImage("Negro", stage, null, new Color(0f, 0f, 0f, 0f));
         MenuStyle.Stretch(black.rectTransform);
+
+        // Rendimiento: lo invisible no se dibuja, y lo que se anima cada cuadro va en su propio
+        // sub-canvas (así no se reconstruye todo el menú en cada cuadro)
+        SetAlpha(layerClosed, 0f);
+        SetAlpha(flash, 0f);
+        SetAlpha(black, 0f);
+        loadGroup.gameObject.SetActive(false);
+        foreach (Graphic g in new Graphic[] { layerOpen, layerClosed, grain })
+            g.gameObject.AddComponent<Canvas>();
     }
 
     // Brillo de una vela: hijo de la capa del ojo abierto, en un punto de la imagen (0-1, desde abajo)
@@ -462,11 +472,11 @@ public class MainMenu : MonoBehaviour
         float flickSmall = Flicker(((t + 0.9f) % 2.3f) / 2.3f);          // la otra vela, desfasada
         warmSmall.color = new Color(1f, 1f, 1f, candleGlow * 0.6f * (0.85f + 0.15f * Mathf.InverseLerp(0.6f, 1f, flickSmall)));
 
-        // Grano: un cuadro nuevo cada 70 ms
+        // Grano: un cuadro nuevo cada 70 ms (Media: cada 140 ms; Baja: sin grano)
         grainTimer -= dt;
-        if (grainTimer <= 0f)
+        if (grain.enabled && grainTimer <= 0f)
         {
-            grainTimer = 0.07f;
+            grainTimer = GameSettings.Quality >= 2 ? 0.07f : 0.14f;
             grain.texture = grainFrames[Random.Range(0, grainFrames.Length)];
             // Se repite a 1 pixel de ruido por pixel de pantalla, en una posición al azar
             float size = MenuStyle.GrainSize;
@@ -555,6 +565,10 @@ public class MainMenu : MonoBehaviour
         // brightness(0.6 + brillo * 0.8): menos de 1 = capa negra, más de 1 = capa blanca suave
         float f = 0.6f + GameSettings.Brightness / 100f * 0.8f;
         brightOverlay.color = f < 1f ? new Color(0f, 0f, 0f, 1f - f) : new Color(1f, 1f, 1f, (f - 1f) * 0.25f);
+        brightOverlay.enabled = brightOverlay.color.a > 0.002f;
+
+        // El grano respeta la calidad elegida
+        if (grain != null) grain.enabled = GameSettings.Quality >= 1;
     }
 
     // ================= MÚSICA DEL MENÚ =================
@@ -607,6 +621,7 @@ public class MainMenu : MonoBehaviour
         tipText.text = Tips[Random.Range(0, Tips.Length)];
         pressGroup.alpha = 0f;
         SetProgress(0f);
+        loadGroup.gameObject.SetActive(true);
         loadGroup.alpha = 1f;
 
         // Empieza a cargar la escena por detrás
@@ -757,6 +772,7 @@ public class MainMenu : MonoBehaviour
     {
         Color c = g.color;
         c.a = a;
+        g.enabled = a > 0.002f;   // transparente = no se dibuja
         g.color = c;
     }
 }

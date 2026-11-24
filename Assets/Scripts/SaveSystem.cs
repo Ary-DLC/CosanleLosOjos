@@ -48,6 +48,7 @@ public class SaveSystem : MonoBehaviour
         public List<string> collected = new List<string>();   // "rutas" de los objetos ya recogidos
         public List<int> notes = new List<int>();
         public bool levelStart;   // true = guardado al cambiar de nivel (empieza en la entrada)
+        public List<int> candles = new List<int>();   // Nivel 3: velas rituales ya apagadas
     }
 
     // Niveles: LevelExit guarda al pasar al siguiente nivel. Se conservan pilas, vendas,
@@ -100,6 +101,7 @@ public class SaveSystem : MonoBehaviour
     private int savedBandages;
     private float savedBattery;
     private List<string> savedCollected = new List<string>();
+    private List<int> savedCandles = new List<int>();
 
     // Objetos recogidos desde el último guardado (están apagados, no destruidos)
     private List<GameObject> collectedSinceSave = new List<GameObject>();
@@ -183,6 +185,9 @@ public class SaveSystem : MonoBehaviour
         }
         collectedSinceSave.Clear();
 
+        // Nivel 3: progreso de las velas rituales
+        savedCandles = RitualManager.Instance != null ? RitualManager.Instance.ExtinguishedIndices() : new List<int>();
+
         HasSave = true;
         WriteToPrefs();
         if (SoundManager.Instance != null) SoundManager.Instance.PlaySave();
@@ -207,6 +212,7 @@ public class SaveSystem : MonoBehaviour
         data.battery = savedBattery;
         data.collected = new List<string>(savedCollected);
         data.notes = new List<int>(inventory.foundNotes);
+        data.candles = new List<int>(savedCandles);
         WriteData(data);
     }
 
@@ -232,6 +238,8 @@ public class SaveSystem : MonoBehaviour
         savedBandages = data.bandages;
         savedBattery = data.battery;
         savedCollected = new List<string>(data.collected);
+        savedCandles = data.candles != null ? new List<int>(data.candles) : new List<int>();
+        if (RitualManager.Instance != null) RitualManager.Instance.Restore(savedCandles);
         HasSave = true;
 
         // Apagar lo que ya se había recogido
@@ -282,6 +290,9 @@ public class SaveSystem : MonoBehaviour
         collectedSinceSave.Clear();
 
         // Los enemigos regresan a donde empezaron
+        // Nivel 3: las velas vuelven a como estaban al guardar
+        if (RitualManager.Instance != null) RitualManager.Instance.Restore(savedCandles);
+
         foreach (EnemyAI enemy in EnemyAI.All)
             enemy.ResetEnemy();
 

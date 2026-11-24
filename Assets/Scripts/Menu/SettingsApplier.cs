@@ -41,6 +41,20 @@ public class SettingsApplier : MonoBehaviour
         GameSettings.Changed -= Apply;
     }
 
+    // Efectos del Volume del nivel según la calidad: Baja sin bloom ni grano, Media con bloom, Alta y Ultra todo
+    // (las sombras, el antialiasing, las texturas y el SSAO los cambia el nivel de calidad de URP)
+    void ApplyQualityEffects()
+    {
+        foreach (Volume v in FindObjectsByType<Volume>(FindObjectsSortMode.None))
+        {
+            if (!v.name.StartsWith("Global Volume (realismo)")) continue;
+            VolumeProfile p = v.profile;   // copia propia: no cambia el archivo del proyecto
+            if (p.TryGet(out Bloom bloom)) bloom.active = GameSettings.Quality >= 1;
+            if (p.TryGet(out FilmGrain grain)) grain.active = GameSettings.Quality >= 2;
+            if (p.TryGet(out Vignette vignette)) vignette.active = GameSettings.Quality >= 1;
+        }
+    }
+
     // Volume global con Color Adjustments: solo cambia la exposición (brillo)
     void CreateBrightnessVolume()
     {
@@ -61,7 +75,9 @@ public class SettingsApplier : MonoBehaviour
 
     void Apply()
     {
+        Application.targetFrameRate = -1;   // en el juego sin límite (el menú se limita a 60)
         if (brightness != null) brightness.postExposure.value = GameSettings.PostExposure;
+        ApplyQualityEffects();
 
         if (fpc != null) fpc.RotationSpeed = GameSettings.RotationSpeed;
         GameInput.ApplyInvertY();

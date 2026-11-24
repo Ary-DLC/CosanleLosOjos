@@ -59,7 +59,8 @@ public class GuiaLlaves : MonoBehaviour
 
     void Update()
     {
-        if (Keyboard.current != null && Keyboard.current.hKey.wasPressedThisFrame) visible = !visible;
+        // G oculta/muestra la flecha (H es para curarse)
+        if (Keyboard.current != null && Keyboard.current.gKey.wasPressedThisFrame) visible = !visible;
 
         if (Time.unscaledTime > siguienteBusqueda)
         {
@@ -83,6 +84,19 @@ public class GuiaLlaves : MonoBehaviour
 
     Transform BuscarObjetivo()
     {
+        // 0) Nivel 3: primero las velas rituales encendidas, luego el centro del círculo
+        if (RitualManager.Instance != null)
+        {
+            Transform vela = Cercano(t =>
+            {
+                RitualCandle c = t.GetComponent<RitualCandle>();
+                return c != null && !c.Extinguished;
+            });
+            if (vela != null) return vela;
+            FinalCinematic final = FindAnyObjectByType<FinalCinematic>();
+            if (final != null) return final.transform;
+        }
+
         // 1) Llaves que falten
         Transform llave = Cercano(t =>
         {

@@ -24,6 +24,9 @@ public class DemonAnimator : MonoBehaviour
 
     private Vector3 basePosition;
     private Vector3 baseScale;
+    private Light eyes;            // brillo rojo de los ojos (más fuerte con cada vela apagada)
+    private float eyesTarget = 0.6f;
+    private float shakeTimer;
     private Mesh mesh;
     private Vector3[] baseVertices, vertices;
     private float[] wingWeight;
@@ -33,6 +36,23 @@ public class DemonAnimator : MonoBehaviour
     {
         basePosition = transform.position;
         baseScale = transform.localScale;
+
+        // Ojos: una luz roja cerca de la cabeza (arriba del modelo, un poco al frente)
+        Bounds bounds = new Bounds(transform.position, Vector3.zero);
+        bool first = true;
+        foreach (Renderer r in GetComponentsInChildren<Renderer>())
+        {
+            if (first) { bounds = r.bounds; first = false; } else bounds.Encapsulate(r.bounds);
+        }
+        GameObject e = new GameObject("Brillo de ojos");
+        e.transform.SetParent(transform, false);
+        e.transform.position = new Vector3(bounds.center.x, bounds.max.y - bounds.size.y * 0.15f, bounds.center.z) + transform.forward * bounds.extents.z * 0.8f;
+        eyes = e.AddComponent<Light>();
+        eyes.type = LightType.Point;
+        eyes.color = new Color(1f, 0.08f, 0.05f);
+        eyes.range = 3f;
+        eyes.intensity = 0.6f;
+        eyes.shadows = LightShadows.None;
 
         // La malla más grande es el cuerpo con las alas
         MeshFilter best = null;
@@ -56,12 +76,29 @@ public class DemonAnimator : MonoBehaviour
         }
     }
 
+    // Lo llama RitualManager: cada vela apagada hace que tiemble, gruña y le brillen más los ojos
+    public void React(int extinguished, int total, bool withShake = true)
+    {
+        eyesTarget = 0.6f + extinguished * 2f;
+        if (eyes != null) eyes.range = 3f + extinguished * 0.8f;
+        if (!withShake) return;
+        shakeTimer = 1.3f;
+        GameAudio.PlayAt("enemigo_grunido", transform.position + Vector3.up * 2f, 1f, "Voices", 2.5f);
+    }
+
     void Update()
     {
         float t = Time.time;
 
-        // Flotar
-        transform.position = basePosition + Vector3.up * Mathf.Sin(t * floatSpeed * Mathf.PI * 2f) * floatHeight;
+        // Flotar (y temblar cuando reacciona a una vela)
+        Vector3 shake = Vector3.zero;
+        if (shakeTimer > 0f)
+        {
+            shakeTimer -= Time.deltaTime;
+            shake = Random.insideUnitSphere * 0.12f * Mathf.Clamp01(shakeTimer);
+        }
+        transform.position = basePosition + Vector3.up * Mathf.Sin(t * floatSpeed * Mathf.PI * 2f) * floatHeight + shake;
+        if (eyes != null) eyes.intensity = Mathf.MoveTowards(eyes.intensity, eyesTarget * (1f + Mathf.Sin(t * 6f) * 0.1f), Time.deltaTime * 4f);
 
         // Respirar (se infla un poquito)
         float breath = 1f + Mathf.Sin(t * breathSpeed * Mathf.PI * 2f) * breathAmount;
