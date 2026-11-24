@@ -145,7 +145,29 @@ public class SaveSystem : MonoBehaviour
             return;
         }
         item.SetActive(false);
+
+        // Las llaves son permanentes (como las notas): no se pierden ni regresan al piso al morir
+        Pickup pickup = item.GetComponent<Pickup>();
+        if (pickup != null && pickup.type == Pickup.ItemType.Llave)
+        {
+            Instance.KeepKey(item, pickup.itemName);
+            return;
+        }
         Instance.collectedSinceSave.Add(item);
+    }
+
+    void KeepKey(GameObject item, string keyName)
+    {
+        string path = GetPath(item.transform);
+        if (!savedCollected.Contains(path)) savedCollected.Add(path);
+        if (!savedKeys.Contains(keyName)) savedKeys.Add(keyName);
+
+        // Si ya hay partida guardada, también queda en el archivo (para "Continuar")
+        SaveData data = ReadData();
+        if (data == null) return;
+        if (!data.keys.Contains(keyName)) data.keys.Add(keyName);
+        if (!data.collected.Contains(path)) data.collected.Add(path);
+        WriteData(data);
     }
 
     // Lo llama Confessional.cs
@@ -278,7 +300,10 @@ public class SaveSystem : MonoBehaviour
         cc.enabled = true;
 
         // Regresar el inventario a como estaba al guardar
-        inventory.keys = new List<string>(savedKeys);
+        // (las llaves NO se pierden: se juntan las guardadas con las que ya traía)
+        List<string> keys = new List<string>(savedKeys);
+        foreach (string k in inventory.keys) if (!keys.Contains(k)) keys.Add(k);
+        inventory.keys = keys;
         // (las notas de Mateo NO se regresan: lo que leíste se queda en el diario)
         inventory.batteries = savedBatteries;
         inventory.bandages = savedBandages;

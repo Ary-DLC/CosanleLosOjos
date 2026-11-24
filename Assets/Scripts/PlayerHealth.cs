@@ -10,6 +10,8 @@ public class PlayerHealth : MonoBehaviour
     public int maxHealth = 3;
     public float invulnerableTime = 2f;  // después de un golpe, 2 s sin recibir más daño
     public float regenInterval = 5f;     // escondida, recupera 1 punto cada tantos segundos
+    public float slowRegenInterval = 20f; // fuera del locker: 1 punto cada 20 s (más lento que las vendas)
+    public float slowRegenDelay = 8f;     // ...pero solo si lleva 8 s sin recibir golpes
     public float restartDelay = 3f;      // segundos antes de reiniciar al morir
     public float deathCinematicTime = 3.2f;   // HorrorFX: la monja atrapa a la jugadora (antes de la pantalla de muerte)
 
@@ -32,11 +34,14 @@ public class PlayerHealth : MonoBehaviour
     {
         if (IsDead) return;
 
-        // Regeneración: solo mientras está escondida en un locker
-        if (hiding != null && hiding.IsHidden && Health < maxHealth)
+        // Regeneración: rápida escondida en un locker, lenta en cualquier otro lado
+        // (lenta solo si lleva un rato sin que la golpeen)
+        bool hidden = hiding != null && hiding.IsHidden;
+        bool calm = Time.time - LastHitTime >= slowRegenDelay;
+        if (Health < maxHealth && (hidden || calm))
         {
             regenTimer += Time.deltaTime;
-            if (regenTimer >= regenInterval)
+            if (regenTimer >= (hidden ? regenInterval : slowRegenInterval))
             {
                 regenTimer = 0f;
                 Health++;
